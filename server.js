@@ -52,7 +52,11 @@ function average(values) {
 class Participant {
   constructor(id) {
     this.id = id
+
     this.lastMessage = null
+
+    this.port = null
+    this.address = null
 
     this.in = {
       volume: {
@@ -209,8 +213,13 @@ function broadcast(address, value) {
   const args = value !== undefined ? [ value ] : []
   const message = osc.toBuffer(address.join('/'), args)
 
-  udpSocket.send(message, 0, message.length, UDP_CLIENT_PORT, UDP_CLIENT_ADDRESS, (error) => {
-    if (error) { log(error) }
+  Object.keys(participants).forEach((key) => {
+    const { port, address } = participants[key]
+    if (port && address) {
+      udpSocket.send(message, 0, message.length, port, address, (error) => {
+        if (error) { log(error) }
+      })
+    }
   })
 }
 
@@ -224,16 +233,26 @@ udpSocket = dgram.createSocket('udp4')
 
 udpSocket.on('listening', () => {
   const address = udpSocket.address()
-  log(`UDP server listening ${address.address}:${address.port}`)
+  log(`UDP server listening on ${address.address}:${address.port}`)
 })
 
 udpSocket.on('error', (err) => {
   log(err.message)
 })
 
-udpSocket.on('message', (buffer) => {
+udpSocket.on('message', (buffer, info) => {
   const data = osc.fromBuffer(buffer)
   const address = data.address.split('/')
+
+  if (address.length > 1) {
+    const id = address[0]
+
+    if (id in participants && !participants[id].port) {
+      participants[id].port = info.port
+      participants[id].address = info.address
+      log(`Found participant "${id}" at ${info.address}:${info.port}`)
+    }
+  }
 
   if (address.length === 4 && data.args.length === 1 && address[1] === CHANNEL_IN) {
     const [id, channel, param, type] = address
@@ -258,6 +277,11 @@ udpSocket.on('message', (buffer) => {
 })
 
 udpSocket.bind(UDP_SERVER_PORT)
+
+// print info
+
+log(`HTTP server listening on ${HTTP_SERVER_PORT}`)
+log(`UDP clients can receive via ${UDP_CLIENT_ADDRESS}:${UDP_CLIENT_PORT}`)
 
 // reset
 

@@ -3,15 +3,15 @@
   "start": "huhu",
   "nodes": {
     "huhu": {
-      "frequency": 5000,
+      "frequency": 200,
       "connections": [
         {
           "treshold": 0.2,
-          "node": "deadend"
+          "node": "peter"
         },
         {
           "treshold": 0.7,
-          "node": "peter"
+          "node": "deadend"
         }
       ]
     },

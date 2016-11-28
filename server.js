@@ -11,8 +11,8 @@ const HTTP_STATIC_FOLDER = 'view'
 const SCORE_PATH = 'score.json'
 
 const UDP_SERVER_PORT = 41234
-const UDP_SEND_PORT = 7500
-const UDP_SEND_ADDRESS = '127.0.0.1'
+const UDP_CLIENT_PORT = 7500
+const UDP_CLIENT_ADDRESS = '127.0.0.1'
 
 const CHANNEL_IN = 'in'
 const CHANNEL_OUT = 'out'
@@ -21,6 +21,17 @@ const SYSTEM_ADDRESS_ROOT = 'brain'
 const ANALYSE_ACTIVITY_FREQUENCY = 20
 const UPDATE_DENSITY_FREQUENCY = 5000
 const ACTIVITY_TRESHOLD = 0.1
+
+const PARTICIPANT_NAMES = [
+  'sam',
+  'andreas',
+]
+
+// helpers
+
+function log(message) {
+  console.log(message)
+}
 
 function average(values) {
   let sum = 0
@@ -35,6 +46,8 @@ function average(values) {
 
   return sum / values.length
 }
+
+// participants
 
 class Participant {
   constructor(id) {
@@ -68,7 +81,15 @@ class Participant {
   }
 }
 
-const participants = {}
+let participants = {}
+
+function registerParticipants(names) {
+  participants = {}
+
+  names.forEach((name) => {
+    participants[name] = new Participant(name)
+  })
+}
 
 // density analysis
 
@@ -92,6 +113,10 @@ function update() {
 
   broadcast([SYSTEM_ADDRESS_ROOT, 'density'], density)
 
+  if (density > 0) {
+    log(`Set densitiy to ${density}`)
+  }
+
   checkPossibleNodes(density)
 
   clear()
@@ -99,8 +124,25 @@ function update() {
 
 // score
 
+let timeout
 let score
 let node
+
+function startTrigger(frequency) {
+  stopTrigger()
+
+  timeout = setTimeout(() => {
+    startTrigger(frequency)
+    broadcast([SYSTEM_ADDRESS_ROOT, 'trigger'])
+  }, frequency)
+}
+
+function stopTrigger() {
+  if (timeout) {
+    clearTimeout(timeout)
+    timeout = null
+  }
+}
 
 function enterNode(name) {
   if (score.nodes[name] && !!score.nodes[name].connections) {
@@ -108,9 +150,19 @@ function enterNode(name) {
     node.connections = node.connections.sort((a, b) => {
       return a.treshold - b.treshold
     })
+
+    if (node.frequency) {
+      startTrigger(node.frequency)
+    } else {
+      stopTrigger()
+    }
+
+    log(`Enter node "${name}"`)
+
     broadcast([SYSTEM_ADDRESS_ROOT, 'node'], name)
+
   } else {
-    throw new Error(`Cant find a valid node "${name}" in score.`)
+    throw new Error(`Cant find a valid node "${name}" in score`)
   }
 }
 
@@ -129,16 +181,36 @@ function checkPossibleNodes(density) {
   })
 }
 
+function reset() {
+  clear()
+
+  // read score
+
+  fs.readFile(SCORE_PATH, 'utf8', (error, data) => {
+    if (error) throw error
+    score = JSON.parse(data)
+
+    if (score && score.name && score.nodes && score.start) {
+      log(`Load score "${score.name}" with ${Object.keys(score.nodes).length} nodes`)
+      enterNode(score.start)
+    } else {
+      log('No valid score read or found')
+    }
+  })
+
+  // participants
+
+  registerParticipants(PARTICIPANT_NAMES)
+}
+
 // messaging
 
 function broadcast(address, value) {
-  const args = [ value ]
+  const args = value !== undefined ? [ value ] : []
   const message = osc.toBuffer(address.join('/'), args)
 
-  udpSocket.send(message, 0, message.length, UDP_SEND_PORT, UDP_SEND_ADDRESS, (error) => {
-    if (error) {
-      console.log(error)
-    }
+  udpSocket.send(message, 0, message.length, UDP_CLIENT_PORT, UDP_CLIENT_ADDRESS, (error) => {
+    if (error) { log(error) }
   })
 }
 
@@ -150,8 +222,13 @@ connect().use(serveStatic([__dirname, HTTP_STATIC_FOLDER].join('/'))).listen(HTT
 
 udpSocket = dgram.createSocket('udp4')
 
+udpSocket.on('listening', () => {
+  const address = udpSocket.address()
+  log(`UDP server listening ${address.address}:${address.port}`)
+})
+
 udpSocket.on('error', (err) => {
-  console.log(err)
+  log(err.message)
 })
 
 udpSocket.on('message', (buffer) => {
@@ -170,30 +247,21 @@ udpSocket.on('message', (buffer) => {
 
       broadcast([id, CHANNEL_OUT, param, type], value)
     } catch(error) {
-      console.log(error.message)
+      log(error.message)
+    }
+
+  } else if (address.length === 2 && address[0] === SYSTEM_ADDRESS_ROOT) {
+    if (address[1] === 'reset') {
+      reset()
     }
   }
 })
 
 udpSocket.bind(UDP_SERVER_PORT)
 
-// read score
+// reset
 
-fs.readFile(SCORE_PATH, 'utf8', (error, data) => {
-  if (error) throw error
-  score = JSON.parse(data)
-
-  if (score && score.name && score.nodes && score.start) {
-    enterNode(score.start)
-  } else {
-    console.log('No valid score read or found.');
-  }
-})
-
-// create participants
-
-participants.sam = new Participant('sam')
-participants.andreas = new Participant('andreas')
+reset()
 
 // start update session
 

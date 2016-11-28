@@ -3,6 +3,7 @@
   "start": "huhu",
   "nodes": {
     "huhu": {
+      "frequency": 5000,
       "connections": [
         {
           "treshold": 0.2,
@@ -15,9 +16,11 @@
       ]
     },
     "deadend": {
+      "frequency": 1000,
       "connections": []
     },
     "peter": {
+      "frequency": 25000,
       "connections": [
         {
           "treshold": 0.3,

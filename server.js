@@ -70,11 +70,12 @@ class Participant {
 
 const participants = {}
 
+// density analysis
+
 let activity = 0
-let score
 
 function clear() {
-  acticity = 0
+  activity = 0
 }
 
 function analyse() {
@@ -90,8 +91,45 @@ function update() {
   const density = (activity / max) > max ? 1.0 : activity / max
 
   broadcast([SYSTEM_ADDRESS_ROOT, 'density'], density)
+
+  checkPossibleNodes(density)
+
   clear()
 }
+
+// score
+
+let score
+let node
+
+function enterNode(name) {
+  if (score.nodes[name] && !!score.nodes[name].connections) {
+    node = score.nodes[name]
+    node.connections = node.connections.sort((a, b) => {
+      return a.treshold - b.treshold
+    })
+    broadcast([SYSTEM_ADDRESS_ROOT, 'node'], name)
+  } else {
+    throw new Error(`Cant find a valid node "${name}" in score.`)
+  }
+}
+
+function checkPossibleNodes(density) {
+  if (! node) {
+    return false
+  }
+
+  node.connections.some((connection) => {
+    if (connection.treshold < density) {
+      enterNode(connection.node)
+      return false
+    }
+
+    return true
+  })
+}
+
+// messaging
 
 function broadcast(address, value) {
   const args = [ value ]
@@ -144,6 +182,12 @@ udpSocket.bind(UDP_SERVER_PORT)
 fs.readFile(SCORE_PATH, 'utf8', (error, data) => {
   if (error) throw error
   score = JSON.parse(data)
+
+  if (score && score.name && score.nodes && score.start) {
+    enterNode(score.start)
+  } else {
+    console.log('No valid score read or found.');
+  }
 })
 
 // create participants

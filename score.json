@@ -1,3 +1,29 @@
-[{
-  "test": 42
-}]
+{
+  "name": "MAIN BRAIN",
+  "start": "huhu",
+  "nodes": {
+    "huhu": {
+      "connections": [
+        {
+          "treshold": 0.2,
+          "node": "deadend"
+        },
+        {
+          "treshold": 0.7,
+          "node": "peter"
+        }
+      ]
+    },
+    "deadend": {
+      "connections": []
+    },
+    "peter": {
+      "connections": [
+        {
+          "treshold": 0.3,
+          "node": "huhu"
+        }
+      ]
+    }
+  }
+}

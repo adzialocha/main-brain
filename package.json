@@ -1,0 +1,14 @@
+{
+  "name": "main-brain",
+  "version": "0.0.1",
+  "description": "Data server for a performance of Sam and Andreas",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "osc-min": "^1.1.1"
+  }
+}

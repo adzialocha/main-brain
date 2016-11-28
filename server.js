@@ -1,6 +1,5 @@
 const connect = require('connect')
 const serveStatic = require('serve-static')
-const ws = require('ws')
 const fs = require('fs')
 const osc = require('osc-min')
 const dgram = require('dgram')
@@ -11,8 +10,7 @@ const HTTP_STATIC_FOLDER = 'view'
 const SCORE_PATH = 'score.json'
 
 const UDP_SERVER_PORT = 41234
-const UDP_CLIENT_PORT = 7500
-const UDP_CLIENT_ADDRESS = '127.0.0.1'
+const UDP_CLIENT_PORT = 7400
 
 const CHANNEL_IN = 'in'
 const CHANNEL_OUT = 'out'
@@ -214,9 +212,9 @@ function broadcast(address, value) {
   const message = osc.toBuffer(address.join('/'), args)
 
   Object.keys(participants).forEach((key) => {
-    const { port, address } = participants[key]
-    if (port && address) {
-      udpSocket.send(message, 0, message.length, port, address, (error) => {
+    const { address } = participants[key]
+    if (address) {
+      udpSocket.send(message, 0, message.length, UDP_CLIENT_PORT, address, (error) => {
         if (error) { log(error) }
       })
     }
@@ -250,7 +248,7 @@ udpSocket.on('message', (buffer, info) => {
     if (id in participants && !participants[id].port) {
       participants[id].port = info.port
       participants[id].address = info.address
-      log(`Found participant "${id}" at ${info.address}:${info.port}`)
+      log(`Found participant "${id}" at ${info.address}:${info.port}. Use port ${UDP_CLIENT_PORT} for listening`)
     }
   }
 
@@ -281,7 +279,6 @@ udpSocket.bind(UDP_SERVER_PORT)
 // print info
 
 log(`HTTP server listening on ${HTTP_SERVER_PORT}`)
-log(`UDP clients can receive via ${UDP_CLIENT_ADDRESS}:${UDP_CLIENT_PORT}`)
 
 // reset
 

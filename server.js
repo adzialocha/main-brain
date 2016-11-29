@@ -121,6 +121,8 @@ function allParticipants() {
 
 // density analysis
 
+let density = 0.0
+
 function clearActivity() {
   allParticipants().forEach((id) => {
     participants[id].activity = 0
@@ -150,7 +152,7 @@ function analyse() {
   })
 
   const max = MAX_ACTIVITY * allParticipants().length
-  const density = (activitySum / max) > max ? 1.0 : activitySum / max
+  density = (activitySum / max) > max ? 1.0 : activitySum / max
 
   broadcast([SYSTEM_ADDRESS_ROOT, 'density'], density)
 
@@ -161,44 +163,75 @@ function analyse() {
   checkPossibleNodes(density)
 }
 
-// score
+// trigger / rhythm function
 
-let timeout
-let score
-let node
+let start
+let rhythmTimer
 
-function startTrigger(frequency) {
-  stopTrigger()
-
-  timeout = setTimeout(() => {
-    startTrigger(frequency)
-    broadcast([SYSTEM_ADDRESS_ROOT, 'trigger'])
-  }, frequency)
+function resetClock() {
+  start = Date.now()
 }
 
-function stopTrigger() {
-  if (timeout) {
-    clearTimeout(timeout)
-    timeout = null
+function secondsSinceEnter() {
+  return Math.floor((Date.now() - start) / 1000)
+}
+
+function rhythmnTick() {
+  const scope = {
+    x: secondsSinceEnter(),
+    d: density,
+    s: participants.sam.out.volume.post,
+    a: participants.andreas.out.volume.post,
+    r: Math.random(),
+  }
+
+  const y = math.abs(math.eval(node.rhythm, scope))
+
+  rhythmTimer = setTimeout(() => {
+    rhythmnTick()
+
+    if (y > 0) {
+      broadcast([SYSTEM_ADDRESS_ROOT, 'trigger'])
+    }
+  }, y)
+}
+
+function stopRhythm() {
+  if (rhythmTimer) {
+    clearTimeout(rhythmTimer)
+    rhythmTimer = null
   }
 }
+
+function startRhythm() {
+  stopRhythm()
+  resetClock()
+
+  rhythmnTick()
+}
+
+// score
+
+let score
+let node
+let currentNodeName
 
 function enterNode(name) {
   if (exists(score.nodes[name]) && exists(score.nodes[name].edges)) {
     node = score.nodes[name]
+    currentNodeName = name
 
-    if (exists(node.frequency)) {
-      startTrigger(node.frequency)
+    if (exists(node.rhythm)) {
+      startRhythm()
     } else {
-      stopTrigger()
+      stopRhythm()
     }
 
-    log(`Enter node "${name}"`)
+    log(`Enter node "${currentNodeName}"`)
 
-    broadcast([SYSTEM_ADDRESS_ROOT, 'node'], name)
-
+    broadcast([SYSTEM_ADDRESS_ROOT, 'node'], currentNodeName)
   } else {
-    throw new Error(`Cant find a valid node "${name}" in score`)
+    throw new Error(`Cant find a valid node "${currentNodeName}" in score`)
   }
 }
 
@@ -282,6 +315,9 @@ udpSocket.on('message', (buffer, info) => {
     if (id in participants && !participants[id].port) {
       participants[id].port = info.port
       participants[id].address = info.address
+
+      broadcast([SYSTEM_ADDRESS_ROOT, 'node'], currentNodeName)
+
       log(`Found participant "${id}" at ${info.address}:${info.port}. Use port ${UDP_CLIENT_PORT} for listening`)
     }
   }

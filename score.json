@@ -3,7 +3,7 @@
   "start": "huhu",
   "nodes": {
     "huhu": {
-      "frequency": 200,
+      "rhythm": "sin(x * 0.05) * 1000",
       "edges": [
         {
           "treshold": [
@@ -22,11 +22,11 @@
       ]
     },
     "deadend": {
-      "frequency": 1000,
+      "rhythm": "1000",
       "edges": []
     },
     "peter": {
-      "frequency": 25000,
+      "rhythm": "500 * r",
       "edges": [
         {
           "treshold": [

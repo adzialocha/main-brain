@@ -3,6 +3,7 @@ const serveStatic = require('serve-static')
 const fs = require('fs')
 const osc = require('osc-min')
 const dgram = require('dgram')
+const math = require('mathjs')
 
 const HTTP_SERVER_PORT = 8080
 const HTTP_STATIC_FOLDER = 'view'
@@ -16,9 +17,9 @@ const CHANNEL_IN = 'in'
 const CHANNEL_OUT = 'out'
 const SYSTEM_ADDRESS_ROOT = 'brain'
 
-const ANALYSE_ACTIVITY_FREQUENCY = 20
-const UPDATE_DENSITY_FREQUENCY = 5000
+const ANALYSE_ACTIVITY_FREQUENCY = 50
 const ACTIVITY_TRESHOLD = 0.1
+const MAXIMUM_DENSITY = 200
 
 const PARTICIPANT_NAMES = [
   'sam',
@@ -78,8 +79,11 @@ class Participant {
 
   analyse() {
     const post = average(this.in.volume.post)
+    const pre = average(this.in.volume.pre)
+
     this.clearBuffer()
-    return post
+
+    return { pre, post }
   }
 }
 
@@ -97,21 +101,35 @@ function registerParticipants(names) {
 
 let activity = 0
 
-function clear() {
-  activity = 0
-}
-
 function analyse() {
   Object.keys(participants).forEach((id) => {
-    if (participants[id].analyse() >= ACTIVITY_TRESHOLD) {
+    const { pre, post } = participants[id].analyse()
+
+    if (post >= ACTIVITY_TRESHOLD) {
       activity += 1
+      broadcast([id, CHANNEL_OUT, 'trigger', 'post'])
+    } else {
+      activity -= 1
+    }
+
+    if (activity <= 0) {
+      activity = 0
+    } else if (activity >= MAXIMUM_DENSITY) {
+      activity = MAXIMUM_DENSITY
+    }
+
+    if (pre >= ACTIVITY_TRESHOLD) {
+      broadcast([id, CHANNEL_OUT, 'trigger', 'pre'])
     }
   })
-}
 
-function update() {
-  const max = (UPDATE_DENSITY_FREQUENCY / ANALYSE_ACTIVITY_FREQUENCY) * Object.keys(participants).length
-  const density = (activity / max) > max ? 1.0 : activity / max
+  // calculate density
+
+  density = (activity / MAXIMUM_DENSITY) > MAXIMUM_DENSITY ? 1.0 : activity / MAXIMUM_DENSITY
+
+  if (density >= 1.0) {
+    density = 1.0
+  }
 
   broadcast([SYSTEM_ADDRESS_ROOT, 'density'], density)
 
@@ -120,8 +138,6 @@ function update() {
   }
 
   checkPossibleNodes(density)
-
-  clear()
 }
 
 // score
@@ -184,7 +200,7 @@ function checkPossibleNodes(density) {
 }
 
 function reset() {
-  clear()
+  activity = 0
 
   // read score
 
@@ -286,5 +302,4 @@ reset()
 
 // start update session
 
-setInterval(update, UPDATE_DENSITY_FREQUENCY)
 setInterval(analyse, ANALYSE_ACTIVITY_FREQUENCY)

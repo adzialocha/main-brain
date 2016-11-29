@@ -6,11 +6,17 @@
       "frequency": 200,
       "connections": [
         {
-          "treshold": 0.2,
+          "treshold": [
+            0.05,
+            0.2
+          ],
           "node": "peter"
         },
         {
-          "treshold": 0.7,
+          "treshold": [
+            0.7,
+            1.0
+          ],
           "node": "deadend"
         }
       ]
@@ -23,7 +29,10 @@
       "frequency": 25000,
       "connections": [
         {
-          "treshold": 0.3,
+          "treshold": [
+            0.05,
+            0.3
+          ],
           "node": "huhu"
         }
       ]

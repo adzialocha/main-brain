@@ -19,7 +19,7 @@ const SYSTEM_ADDRESS_ROOT = 'brain'
 
 const ANALYSE_ACTIVITY_FREQUENCY = 50
 const ACTIVITY_TRESHOLD = 0.1
-const MAXIMUM_DENSITY = 200
+const MAX_ACTIVITY = 100
 
 const PARTICIPANT_NAMES = [
   'sam',
@@ -52,10 +52,10 @@ class Participant {
   constructor(id) {
     this.id = id
 
-    this.lastMessage = null
-
     this.port = null
     this.address = null
+
+    this.activity = 0
 
     this.in = {
       volume: {
@@ -85,6 +85,20 @@ class Participant {
 
     return { pre, post }
   }
+
+  charge() {
+    this.activity += 1
+    if (this.activity >= MAX_ACTIVITY) {
+      this.activity = MAX_ACTIVITY
+    }
+  }
+
+  uncharge() {
+    this.activity -= 1
+    if (this.activity < 0) {
+      this.activity = 0
+    }
+  }
 }
 
 let participants = {}
@@ -97,39 +111,42 @@ function registerParticipants(names) {
   })
 }
 
+function allParticipants() {
+  return Object.keys(participants)
+}
+
 // density analysis
 
-let activity = 0
+function clearActivity() {
+  allParticipants().forEach((id) => {
+    participants[id].activity = 0
+  })
+}
 
 function analyse() {
-  Object.keys(participants).forEach((id) => {
+  allParticipants().forEach((id) => {
     const { pre, post } = participants[id].analyse()
-
-    if (post >= ACTIVITY_TRESHOLD) {
-      activity += 1
-      broadcast([id, CHANNEL_OUT, 'trigger', 'post'])
-    } else {
-      activity -= 1
-    }
-
-    if (activity <= 0) {
-      activity = 0
-    } else if (activity >= MAXIMUM_DENSITY) {
-      activity = MAXIMUM_DENSITY
-    }
 
     if (pre >= ACTIVITY_TRESHOLD) {
       broadcast([id, CHANNEL_OUT, 'trigger', 'pre'])
+    }
+
+    if (post >= ACTIVITY_TRESHOLD) {
+      participants[id].charge()
+      broadcast([id, CHANNEL_OUT, 'trigger', 'post'])
+    } else {
+      participants[id].uncharge()
     }
   })
 
   // calculate density
 
-  density = (activity / MAXIMUM_DENSITY) > MAXIMUM_DENSITY ? 1.0 : activity / MAXIMUM_DENSITY
+  const activitySum = allParticipants().reduce((a, b) => {
+    return participants[a].activity + participants[b].activity
+  })
 
-  if (density >= 1.0) {
-    density = 1.0
-  }
+  const max = MAX_ACTIVITY * allParticipants().length
+  const density = (activitySum / max) > max ? 1.0 : activitySum / max
 
   broadcast([SYSTEM_ADDRESS_ROOT, 'density'], density)
 
@@ -190,17 +207,17 @@ function checkPossibleNodes(density) {
   }
 
   node.connections.some((connection) => {
-    if (connection.treshold < density) {
+    if (connection.treshold[0] <= density && connection.treshold[1] >= density) {
       enterNode(connection.node)
-      return false
+      return true
     }
 
-    return true
+    return false
   })
 }
 
 function reset() {
-  activity = 0
+  clearActivity()
 
   // read score
 
@@ -216,7 +233,7 @@ function reset() {
     }
   })
 
-  // participants
+  // create participants
 
   registerParticipants(PARTICIPANT_NAMES)
 }
@@ -227,7 +244,7 @@ function broadcast(address, value) {
   const args = value !== undefined ? [ value ] : []
   const message = osc.toBuffer(address.join('/'), args)
 
-  Object.keys(participants).forEach((key) => {
+  allParticipants().forEach((key) => {
     const { address } = participants[key]
     if (address) {
       udpSocket.send(message, 0, message.length, UDP_CLIENT_PORT, address, (error) => {
@@ -275,8 +292,6 @@ udpSocket.on('message', (buffer, info) => {
     try {
       participants[id][channel][param][type].push(value)
       participants[id].out[param][type] = value
-
-      participants[id].lastMessage = new Date()
 
       broadcast([id, CHANNEL_OUT, param, type], value)
     } catch(error) {

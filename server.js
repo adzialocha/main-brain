@@ -46,6 +46,10 @@ function average(values) {
   return sum / values.length
 }
 
+function exists(obj) {
+  return typeof obj !== undefined
+}
+
 // participants
 
 class Participant {
@@ -180,13 +184,10 @@ function stopTrigger() {
 }
 
 function enterNode(name) {
-  if (score.nodes[name] && !!score.nodes[name].connections) {
+  if (exists(score.nodes[name]) && exists(score.nodes[name].edges)) {
     node = score.nodes[name]
-    node.connections = node.connections.sort((a, b) => {
-      return a.treshold - b.treshold
-    })
 
-    if (node.frequency) {
+    if (exists(node.frequency)) {
       startTrigger(node.frequency)
     } else {
       stopTrigger()
@@ -206,7 +207,7 @@ function checkPossibleNodes(density) {
     return false
   }
 
-  node.connections.some((connection) => {
+  node.edges.some((connection) => {
     if (connection.treshold[0] <= density && connection.treshold[1] >= density) {
       enterNode(connection.node)
       return true
@@ -297,7 +298,6 @@ udpSocket.on('message', (buffer, info) => {
     } catch(error) {
       log(error.message)
     }
-
   } else if (address.length === 2 && address[0] === SYSTEM_ADDRESS_ROOT) {
     if (address[1] === 'reset') {
       reset()

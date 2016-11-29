@@ -4,7 +4,7 @@
   "nodes": {
     "huhu": {
       "frequency": 200,
-      "connections": [
+      "edges": [
         {
           "treshold": [
             0.05,
@@ -23,11 +23,11 @@
     },
     "deadend": {
       "frequency": 1000,
-      "connections": []
+      "edges": []
     },
     "peter": {
       "frequency": 25000,
-      "connections": [
+      "edges": [
         {
           "treshold": [
             0.05,

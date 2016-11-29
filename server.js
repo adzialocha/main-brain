@@ -2,6 +2,7 @@ const connect = require('connect')
 const serveStatic = require('serve-static')
 const fs = require('fs')
 const osc = require('osc-min')
+const ws = require('ws')
 const dgram = require('dgram')
 const math = require('mathjs')
 
@@ -12,6 +13,8 @@ const SCORE_PATH = 'score.json'
 
 const UDP_SERVER_PORT = 41234
 const UDP_CLIENT_PORT = 7400
+
+const WEBSOCKET_SERVER_PORT = 9090
 
 const CHANNEL_IN = 'in'
 const CHANNEL_OUT = 'out'
@@ -278,6 +281,8 @@ function broadcast(address, value) {
   const args = value !== undefined ? [ value ] : []
   const message = osc.toBuffer(address.join('/'), args)
 
+  // send to udp clients
+
   allParticipants().forEach((key) => {
     const { address } = participants[key]
     if (address) {
@@ -286,11 +291,28 @@ function broadcast(address, value) {
       })
     }
   })
+
+  // send to ws clients
+
+  websocketServer.clients.forEach((client) => {
+    client.send(osc.toBuffer('/' + address.join('/'), args), (error) => {
+      if (error) {
+        log(`Websocket server error ${error}`)
+      }
+    })
+  })
 }
 
 // http server
 
-connect().use(serveStatic([__dirname, HTTP_STATIC_FOLDER].join('/'))).listen(HTTP_SERVER_PORT);
+const httpServer = connect()
+
+httpServer.use(serveStatic([__dirname, HTTP_STATIC_FOLDER].join('/')))
+httpServer.use('/score', (req, res) => {
+  res.end(JSON.stringify(score))
+})
+
+httpServer.listen(HTTP_SERVER_PORT)
 
 // udp socket
 
@@ -298,7 +320,7 @@ udpSocket = dgram.createSocket('udp4')
 
 udpSocket.on('listening', () => {
   const address = udpSocket.address()
-  log(`UDP server listening on ${address.address}:${address.port}`)
+  log(`UDP server listening on ${address.port}`)
 })
 
 udpSocket.on('error', (err) => {
@@ -342,6 +364,26 @@ udpSocket.on('message', (buffer, info) => {
 })
 
 udpSocket.bind(UDP_SERVER_PORT)
+
+// websocket
+
+const websocketServer = new ws.Server({ port: WEBSOCKET_SERVER_PORT })
+
+websocketServer.on('connection', (client) => {
+  log('Websocket participant connected')
+
+  broadcast([SYSTEM_ADDRESS_ROOT, 'node'], currentNodeName)
+
+  client.on('close', (message) => {
+    log(`Websocket participant left with message "${message}"`)
+  })
+
+  client.on('error', (error) => {
+    log(`Websocket client error "${error}"`)
+  })
+})
+
+log(`Websocket server listening on ${WEBSOCKET_SERVER_PORT}`)
 
 // print info
 

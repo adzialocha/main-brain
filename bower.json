@@ -1,0 +1,19 @@
+{
+  "name": "main-brain",
+  "description": "Data server for a performance of Sam and Andreas",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/adzialocha/main-brain",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "osc-js": "^0.1.1",
+    "cytoscape": "^2.7.12",
+    "jquery": "^3.1.1"
+  }
+}

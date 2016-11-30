@@ -20,6 +20,13 @@ const CHANNEL_IN = 'in'
 const CHANNEL_OUT = 'out'
 const SYSTEM_ADDRESS_ROOT = 'brain'
 
+const TRIGGER_IDS = {
+  'ANDREAS_OUT_POST': { id: 'andreas', param: 'volume', type: 'post' },
+  'ANDREAS_OUT_PRE': { id: 'andreas', param: 'volume', type: 'pre' },
+  'SAM_OUT_POST': { id: 'sam', param: 'volume', type: 'post' },
+  'SAM_OUT_PRE': { id: 'sam', param: 'volume', type: 'pre' },
+}
+
 const ANALYSE_ACTIVITY_FREQUENCY = 50
 const ACTIVITY_TRESHOLD = 0.1
 const MAX_ACTIVITY = 100
@@ -132,17 +139,37 @@ function clearActivity() {
   })
 }
 
+function triggerVolumeActivity(id, type) {
+  broadcast([id, CHANNEL_OUT, 'trigger', type])
+
+  if (currentNodeTrigger) {
+    if (currentNodeTrigger.id === id && currentNodeTrigger.type === type) {
+      broadcast([SYSTEM_ADDRESS_ROOT, 'trigger'])
+    }
+  }
+}
+
+function setDensity(value) {
+  density = value
+
+  broadcast([SYSTEM_ADDRESS_ROOT, 'density'], density)
+
+  if (density > 0) {
+    log(`Set densitiy to ${density}`)
+  }
+}
+
 function analyse() {
   allParticipants().forEach((id) => {
     const { pre, post } = participants[id].analyse()
 
     if (pre >= ACTIVITY_TRESHOLD) {
-      broadcast([id, CHANNEL_OUT, 'trigger', 'pre'])
+      triggerVolumeActivity(id, 'pre')
     }
 
     if (post >= ACTIVITY_TRESHOLD) {
       participants[id].charge()
-      broadcast([id, CHANNEL_OUT, 'trigger', 'post'])
+      triggerVolumeActivity(id, 'post')
     } else {
       participants[id].uncharge()
     }
@@ -155,13 +182,7 @@ function analyse() {
   })
 
   const max = MAX_ACTIVITY * allParticipants().length
-  density = (activitySum / max) > max ? 1.0 : activitySum / max
-
-  broadcast([SYSTEM_ADDRESS_ROOT, 'density'], density)
-
-  if (density > 0) {
-    log(`Set densitiy to ${density}`)
-  }
+  setDensity((activitySum / max) > max ? 1.0 : activitySum / max)
 
   checkPossibleNodes(density)
 }
@@ -218,16 +239,28 @@ function startRhythm() {
 let score
 let node
 let currentNodeName
+let currentNodeTrigger
 
 function enterNode(name) {
   if (exists(score.nodes[name]) && exists(score.nodes[name].edges)) {
     node = score.nodes[name]
     currentNodeName = name
+    currentNodeTrigger = null
+
+    setDensity(0)
+
+    allParticipants().forEach((id) => {
+      participants[id].activity = 0
+    })
+
+    stopRhythm()
 
     if (exists(node.rhythm)) {
-      startRhythm()
-    } else {
-      stopRhythm()
+      if (! Object.keys(TRIGGER_IDS).includes(node.rhythm)) {
+        startRhythm()
+      } else {
+        currentNodeTrigger = TRIGGER_IDS[node.rhythm]
+      }
     }
 
     log(`Enter node "${currentNodeName}"`)

@@ -26,6 +26,18 @@
       "edges": []
     },
     "peter": {
+      "rhythm": "ANDREAS_OUT_POST",
+      "edges": [
+        {
+          "treshold": [
+            0.7,
+            1.0
+          ],
+          "node": "lalala"
+        }
+      ]
+    },
+    "lalala": {
       "rhythm": "500 * r",
       "edges": [
         {
@@ -33,7 +45,7 @@
             0.7,
             1.0
           ],
-          "node": "huhu"
+          "node": "peter"
         }
       ]
     }

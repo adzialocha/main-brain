@@ -52,6 +52,7 @@
   }
 
   function goToNode(id) {
+    graph.nodes().stop(true, true);
     graph.animate({
       center: {
         eles: graph.nodes("[id='" + id + "']"),
@@ -60,8 +61,21 @@
       duration: ANIMATION_DURATION,
     });
 
-    graph.$('[id="' + currentNodeId + '"]').style('backgroundColor', DEFAULT_NODE_COLOR);
-    graph.$('[id="' + id + '"]').style('backgroundColor', SELECTED_NODE_COLOR);
+    graph.$('[id="' + currentNodeId + '"]').animate({
+      style: {
+        'backgroundColor': DEFAULT_NODE_COLOR,
+      }
+    }, {
+      duration: ANIMATION_DURATION,
+    });
+
+    graph.$('[id="' + id + '"]').animate({
+      style: {
+        'backgroundColor': SELECTED_NODE_COLOR,
+      }
+    }, {
+      duration: ANIMATION_DURATION
+    });
 
     currentNodeId = id;
   }

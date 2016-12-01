@@ -1,1 +1,63 @@
-
+{
+  "name": "MAIN BRAIN",
+  "start": "huhu",
+  "nodes": {
+    "huhu": {
+      "rhythm": "((sin((1/x)(1/(1-x))))+1)*1000",
+      "edges": [
+        {
+          "treshold": [
+            0.05,
+            0.2
+          ],
+          "node": "peter"
+        },
+        {
+          "treshold": [
+            0.7,
+            1.0
+          ],
+          "node": "deadend"
+        }
+      ]
+    },
+    "deadend": {
+      "rhythm": "ANDREAS_OUT_PRE",
+      "edges": [
+        {
+          "treshold": [
+            0.05,
+            0.2
+          ],
+          "node": "huhu"
+        },
+        {
+          "treshold": [
+            0.7,
+            1.0
+          ],
+          "node": "peter"
+        }
+      ]
+    },
+    "peter": {
+      "rhythm": "SAM_OUT_PRE",
+    "edges": [
+        {
+          "treshold": [
+            0.05,
+            0.2
+          ],
+          "node": "deadend"
+        },
+        {
+          "treshold": [
+            0.7,
+            1.0
+          ],
+          "node": "huhu"
+        }
+      ]
+    }
+  }
+}
